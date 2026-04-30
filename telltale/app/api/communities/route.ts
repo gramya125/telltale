@@ -11,7 +11,7 @@ export async function GET(
     const db = await getDatabase();
     const communityId = params.id;
 
-    let community = null;
+    let community: any = null;
 
     // Try fetching by ObjectId first
     try {
