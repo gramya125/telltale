@@ -88,7 +88,7 @@ export default function CommunitiesPage() {
   };
 
   const getUserId = () => {
-    return (session?.user as any)?.id || session?.user?.email || "anonymous";
+    return session?.user?.id || session?.user?.email || "anonymous";
   };
 
   const yourCommunities = communities.filter((c) =>

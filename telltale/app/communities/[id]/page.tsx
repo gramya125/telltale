@@ -100,7 +100,7 @@ export default function CommunityDetailPage() {
   }, []);
 
   const getUserId = () =>
-    (session?.user as any)?.id || session?.user?.email || "anonymous";
+    session?.user?.id || session?.user?.email || "anonymous";
 
   const getUsername = () =>
     session?.user?.name ||
