@@ -30,7 +30,12 @@ client = MongoClient(os.getenv("MONGODB_URI"))
 db = client["telltale"]
 books_collection = db["books"]
 
-books = pd.DataFrame(list(books_collection.find({}, {"_id": 0})))
+try:
+    books = pd.DataFrame(list(books_collection.find({}, {"_id": 0})))
+    print(f"📚 Loaded {len(books)} books")
+except Exception as e:
+    print("❌ MongoDB connection failed:", e)
+    books = pd.DataFrame()
 
 if not books.empty:
     books["book_id"] = books["book_id"].astype(int)
