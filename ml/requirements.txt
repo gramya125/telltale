@@ -1,0 +1,11 @@
+
+huggingface_hub
+joblib
+fastapi
+uvicorn
+pymongo
+pandas
+numpy
+scikit-learn
+joblib
+huggingface_hub
