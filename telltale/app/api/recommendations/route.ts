@@ -143,12 +143,12 @@ export async function GET(request: NextRequest) {
       }
 
       let score = book.rating * 20; // Base score from rating
-      let reasons = [];
+      let reasons: string[] = [];
 
       // Boost score for matching genres
-      if (userGenres && userGenres.genres.some(genre => book.genres?.includes(genre))) {
+      if (userGenres && userGenres.genres.some((genre: string) => book.genres?.includes(genre))) {
         score += 20;
-        const matchingGenres = userGenres.genres.filter(genre => book.genres?.includes(genre));
+        const matchingGenres = userGenres.genres.filter((genre: string) => book.genres?.includes(genre));
         reasons.push(`Matches your favorite genre${matchingGenres.length > 1 ? 's' : ''}: ${matchingGenres.join(', ')}`);
       }
 

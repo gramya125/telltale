@@ -12,7 +12,7 @@ export async function GET(
 
     let community: any = null;
 
-    // Try fetching by ObjectId first, fall back to string match
+    // Try fetching by ObjectId first, fall back to custom id field
     try {
       community = await db
         .collection("communities")
@@ -20,7 +20,7 @@ export async function GET(
     } catch {
       community = await db
         .collection("communities")
-        .findOne({ _id: communityId as any });
+        .findOne({ id: communityId });
     }
 
     if (!community) {

@@ -140,7 +140,7 @@ export async function POST(
       try {
         const community = await db
           .collection('communities')
-          .findOne({ _id: params.id as any });
+          .findOne({ id: params.id });
         if (community) {
           communityName = community.name || communityName;
           communityCategory = community.genre || community.category || communityCategory;
