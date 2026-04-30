@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     // Combine all activities
-    const activities = [];
+    const activities: any[] = [];
 
     // Add rating activities
     for (const rating of recentRatings) {
