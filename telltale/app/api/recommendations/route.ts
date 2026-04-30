@@ -47,23 +47,74 @@ export async function GET(request: NextRequest) {
     const excludedBookIds = [...ratedBookIds, ...readingListBookIds];
 
     let recommendations: any[] = [];
+    let mlRecommendations: any[] = [];
 
-    if (userGenres && userGenres.genres.length > 0) {
-      // Get books from user's favorite genres that they haven't read
-      recommendations = await db
-        .collection("books")
-        .find({
-          _id: { $nin: excludedBookIds },
-          genres: { $in: userGenres.genres },
-          rating: { $gte: 4.0 }, // Only recommend highly rated books
-          totalRatings: { $gte: 5 } // Books with enough ratings
-        })
-        .sort({ rating: -1, totalRatings: -1 })
-        .limit(limit)
-        .toArray();
+    // Call ML API for personalized recommendations
+    try {
+      const mlApiUrl = process.env.NEXT_PUBLIC_API_URL || "https://telltale-ml-api.onrender.com";
+      const mlResponse = await fetch(`${mlApiUrl}/recommend/${session.user.id}?top_n=${limit}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (mlResponse.ok) {
+        const mlData = await mlResponse.json();
+        mlRecommendations = mlData.recommendations || [];
+        console.log(`✅ ML API returned ${mlRecommendations.length} recommendations`);
+      } else {
+        console.warn("⚠️ ML API request failed, falling back to genre-based recommendations");
+      }
+    } catch (mlError) {
+      console.error("❌ ML API error:", mlError);
+      console.log("Falling back to genre-based recommendations");
     }
 
-    // If not enough recommendations from genres, add popular books
+    // If ML API returned recommendations, fetch full book details
+    if (mlRecommendations.length > 0) {
+      const mlBookIds = mlRecommendations.map(rec => rec.book_id);
+      
+      const mlBooks = await db
+        .collection("books")
+        .find({
+          book_id: { $in: mlBookIds },
+          _id: { $nin: excludedBookIds }
+        })
+        .toArray();
+
+      // Map ML scores to books
+      recommendations = mlBooks.map(book => {
+        const mlRec = mlRecommendations.find(rec => rec.book_id === book.book_id);
+        return {
+          ...book,
+          recommendationScore: mlRec ? Math.round(mlRec.score * 100) : 50,
+          recommendationReasons: ["Personalized recommendation based on your reading history"]
+        };
+      });
+    }
+
+    // Fallback: If ML API didn't return enough recommendations, use genre-based
+    if (recommendations.length < limit) {
+      if (userGenres && userGenres.genres.length > 0) {
+        // Get books from user's favorite genres that they haven't read
+        const genreBooks = await db
+          .collection("books")
+          .find({
+            _id: { $nin: excludedBookIds },
+            genres: { $in: userGenres.genres },
+            rating: { $gte: 4.0 },
+            totalRatings: { $gte: 5 }
+          })
+          .sort({ rating: -1, totalRatings: -1 })
+          .limit(limit - recommendations.length)
+          .toArray();
+
+        recommendations = [...recommendations, ...genreBooks];
+      }
+    }
+
+    // If still not enough recommendations, add popular books
     if (recommendations.length < limit) {
       const additionalBooks = await db
         .collection("books")
@@ -84,15 +135,20 @@ export async function GET(request: NextRequest) {
       recommendations = [...recommendations, ...additionalBooks];
     }
 
-    // Add recommendation scores and reasons
+    // Add recommendation scores and reasons for fallback books
     const recommendationsWithScores = recommendations.map(book => {
+      // If already has ML score, keep it
+      if (book.recommendationScore) {
+        return book;
+      }
+
       let score = book.rating * 20; // Base score from rating
       let reasons = [];
 
       // Boost score for matching genres
-      if (userGenres && userGenres.genres.some(genre => book.genres.includes(genre))) {
+      if (userGenres && userGenres.genres.some(genre => book.genres?.includes(genre))) {
         score += 20;
-        const matchingGenres = userGenres.genres.filter(genre => book.genres.includes(genre));
+        const matchingGenres = userGenres.genres.filter(genre => book.genres?.includes(genre));
         reasons.push(`Matches your favorite genre${matchingGenres.length > 1 ? 's' : ''}: ${matchingGenres.join(', ')}`);
       }
 
@@ -123,6 +179,7 @@ export async function GET(request: NextRequest) {
       count: recommendationsWithScores.length,
       recommendations: recommendationsWithScores,
       userGenres: userGenres?.genres || [],
+      mlPowered: mlRecommendations.length > 0,
     });
   } catch (error) {
     console.error("Get recommendations error:", error);
